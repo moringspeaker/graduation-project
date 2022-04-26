@@ -42,29 +42,17 @@ class Booster():
         dtrain.save_binary('dtrain.buffer')
         return dtrain
 
-    def train(self,dtrain,eta,max_depth,subsample,colsample_bytree,min_child_weight,gamma,num,lambda_):
+    def train(self,dtrain,param,num):
         """
         Sets the parameters for the XGBoost model.
         """
-        param = {'booster': 'gbtree',
-                'objective': 'binary:logistic',  # 二分类的问题
-                'gamma': gamma,                  # 用于控制是否后剪枝的参数,越大越保守，一般0.1、0.2这样子。
-                'max_depth': max_depth,               # 构建树的深度，越大越容易过拟合
-                'lambda': lambda_,                   # 控制模型复杂度的权重值的L2正则化项参数，参数越大，模型越不容易过拟合。
-                'subsample': subsample,              # 随机采样训练样本
-                'colsample_bytree': colsample_bytree,       # 生成树时进行的列采样
-                'min_child_weight': min_child_weight,
-                'silent': 1,                   # 设置成1则没有运行信息输出，最好是设置为0.
-                'eta': eta,                  # 如同学习率
-                'seed': 1000,
-                'nthread': 4,                  # cpu 线程数
-                'eval_metric':'auc'}
-        num_round = num
         default_param = {'booster':'gbtree','objective': 'binary:logistic','lambda': 2,'eta': 0.3, 'max_depth': 6, 'subsample': 0.7, 'colsample_bytree': 0.7, 'min_child_weight': 3,'silten': 0, 'gamma': 0.1,'eval_metric':'auc'}
         numroud=100
-        p=xgb.cv(default_param,dtrain,num_round,nfold=5,metrics={'auc'})
+        p=xgb.cv(param,dtrain,num,nfold=5,metrics={'auc'})
         print(p['test-auc-mean'])#取出迭代最后一次的auc值
-        return p['test-auc-mean'].iloc[-1]
+        print ( p["test-auc-mean"].max())
+        return (p["test-auc-mean"].max(),p["test-auc-mean"].idxmax())
+
 
     def save_result(self,bst):
         bst.save_model('0001.model.')
@@ -85,31 +73,54 @@ if __name__ == '__main__':
     Boost=Booster()
     dtrain= Boost.read_csv()
     # eta=0.1
-    gamma=[0.05,0.06,0.07,0.08,0.09,0.1,0.2,0.3,0.4,0.5,0.55,0.6,0.7,0.8,0.9,1.0]
+    eta=0.3
+    max_depth=6
+    gamma=0.1
+
+    param = {'booster': 'gbtree',
+             'objective': 'binary:logistic',  # 二分类的问题
+             'gamma': 0.1,  # 用于控制是否后剪枝的参数,越大越保守，一般0.1、0.2这样子。
+             'max_depth': 6,
+             'lambda': 2,  # 控制模型复杂度的权重值的L2正则化项参数，参数越大，模型越不容易过拟合。
+             'subsample': 0.7,  # 随机采样训练样本
+             'colsample_bytree':0.7,  # 生成树时进行的列采样
+             'min_child_weight':3,
+             'silent': 1,  # 设置成1则没有运行信息输出，最好是设置为0.
+             'eta': 0.3,  # 如同学习率
+             'seed': 1000,
+             'nthread': 4,  # cpu 线程数
+             'eval_metric': 'auc'}
     x=[]
     y=[]
+    loc=[]
     result=[]
-    # for x_i in range(5,20):
-    #     for y_i in np.arange(0.3,1,0.1):
-    #
-    #         print(res)
-    #         result.append(res)
-    #         y.append(y_i)
-    #         x.append(x_i)
-    #         # Boost.save_result(bst)
-    #         # Boost.predict(bst,y_test,dtest)
-    #         # rate = Boost.predict(bst, y_test, dtest)
-    #         # result.append(rate)
-    res = Boost.train(dtrain, 0.3, 10, 0.3, 0.3, 3, 0.1, 100, 5)
-    # fig = plt.figure()
-    # # 创建3d绘图区域
-    # ax = plt.axes(projection='3d')
-    # X=np.array(x)
-    # Y=np.array(y)
-    # Z=np.array(result)
-    # # plt.xlim(0.005, 0.15)
-    # ax.scatter3D(X,Y,Z, cmap='rainbow')
-    # ax.set_title('3D scattered plot')
-    # plt.show()
-    # location=result.index(max(result))
-    # print("eta=%s;max_depth=%s;rate=%s"%(x[location],y[location],max(result)))
+    gmma=[]
+    Gamma=[0,0.01,0.05,0.1,0.15,0.2,0.25,0.3]
+    param['gamma']=0.3
+    param['eta']='0.11'
+    for x_i in range(60,80):
+        for y_i in np.arange(0.5,0.7,0.01):
+            param['subsample'] = y_i
+            res = Boost.train(dtrain, param, x_i)
+            result.append(res[0])
+            x.append(x_i)
+            y.append(y_i)
+            print(res)
+            # Boost.save_result(bst)
+            # Boost.predict(bst,y_test,dtest)
+            # rate = Boost.predict(bst, y_test, dtest)
+            # result.append(rate)
+
+    fig = plt.figure()
+    #创建3d绘图区域
+    ax = plt.axes(projection='3d')
+    X=np.array(x)
+    Y=np.array(y)
+    Z=np.array(result)
+    # plt.xlim(0.005, 0.15)
+    ax.scatter3D(X,Y,Z, cmap='rainbow')
+    ax.set_title('3D scattered plot')
+    plt.show()
+    location=result.index(max(result))
+    print(loc)
+    print("X=%s;Y=%s;rate=%s"%(x[location],y[location],max(result)))
